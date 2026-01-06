@@ -1,0 +1,6 @@
+﻿flask
+flask-smorest
+sqlalchemy
+flask-sqlalchemy
+psycopg2-binary
+gunicorn
