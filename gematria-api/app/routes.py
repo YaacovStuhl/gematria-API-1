@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import abort
 from flask.views import MethodView
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from .extensions import db
 from .models import GematriaEntry
@@ -34,6 +34,8 @@ class GematriaLookup(MethodView):
             ).scalar_one_or_none()
         except OperationalError:
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
 
         if entry is None:
             abort(404, description="Phrase not found")
@@ -63,6 +65,8 @@ class Matches(MethodView):
             )
         except OperationalError:
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
 
         return [
             {"id": e.id, "phrase": e.phrase, "value": e.value, "source": None}
@@ -86,6 +90,9 @@ class Entries(MethodView):
         except OperationalError:
             db.session.rollback()
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
         except IntegrityError:
             db.session.rollback()
             abort(409, description="Phrase already exists")
@@ -102,6 +109,8 @@ class EntryById(MethodView):
             entry = db.session.get(GematriaEntry, entry_id)
         except OperationalError:
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
         if entry is None:
             abort(404, description="Entry not found")
 
@@ -115,6 +124,9 @@ class EntryById(MethodView):
         except OperationalError:
             db.session.rollback()
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
         except IntegrityError:
             db.session.rollback()
             abort(409, description="Phrase already exists")
@@ -130,6 +142,8 @@ class EntryById(MethodView):
             entry = db.session.get(GematriaEntry, entry_id)
         except OperationalError:
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
 
         if entry is None:
             abort(404, description="Entry not found")
@@ -141,6 +155,9 @@ class EntryById(MethodView):
         except OperationalError:
             db.session.rollback()
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
 
         return deleted
 
@@ -163,6 +180,8 @@ class EntryByPhrase(MethodView):
             ).scalar_one_or_none()
         except OperationalError:
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
 
         if entry is None:
             entry = GematriaEntry(phrase=phrase, value=value)
@@ -175,6 +194,9 @@ class EntryByPhrase(MethodView):
         except OperationalError:
             db.session.rollback()
             abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
         except IntegrityError:
             db.session.rollback()
             abort(409, description="Phrase already exists")

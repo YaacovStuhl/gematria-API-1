@@ -53,6 +53,21 @@ def create_app() -> Flask:
 
         return {"ok": True, "database": info["database"], "user": info["user"], "entries_count": int(count)}
 
+    @app.get("/health")
+    def health():
+        """
+        Production-safe health endpoint.
+        Verifies DB connectivity and whether public.gematria_entries exists.
+        """
+        try:
+            db.session.execute(text("SELECT 1"))
+            exists = db.session.execute(
+                text("SELECT to_regclass('public.gematria_entries') IS NOT NULL AS exists")
+            ).mappings().one()["exists"]
+        except OperationalError:
+            return {"ok": False, "db_ok": False, "table_exists": False}, 503
+        return {"ok": True, "db_ok": True, "table_exists": bool(exists)}
+
     if app.config.get("AUTO_CREATE_TABLES", False):
         with app.app_context():
             db.create_all()
