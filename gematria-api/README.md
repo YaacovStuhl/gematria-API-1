@@ -30,6 +30,27 @@ Run (with the API server running):
 .\venv\Scripts\python .\scripts\import_sefaria_words.py --ref "Genesis.1"
 ```
 
+To import Strong's Hebrew lemmas into your DB (via the API):
+
+```bash
+python .\scripts\import_strongs_hebrew.py --base-url "https://YOUR-SERVICE.onrender.com" --sleep 0.01
+```
+
+## Bulk insert (JSON array)
+
+The API supports bulk upserts (by unique `phrase`) at:
+
+- `PUT /entries/by-phrase/bulk`
+
+Example payload:
+
+```json
+[
+  {"phrase": "שלום", "value": 376},
+  {"phrase": "בדיקה", "value": 112}
+]
+```
+
 Note: the assignment DB table is `public.gematria_entries (id, phrase, value)` only.  
 `source` is accepted by the API for convenience but is **not stored** unless you add a `source` column (or create a separate source table).
 

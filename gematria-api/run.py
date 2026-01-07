@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from app import create_app
+from app.factory import create_app
 
 app = create_app()
 

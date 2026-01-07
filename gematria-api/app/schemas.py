@@ -37,6 +37,12 @@ class EntryUpsertByPhraseSchema(Schema):
     source = fields.String(load_default=None, allow_none=True)
 
 
+class BulkUpsertResponseSchema(Schema):
+    requested = fields.Integer(required=True)
+    unique = fields.Integer(required=True)
+    upserted = fields.Integer(required=True)
+
+
 class EntryUpdateSchema(Schema):
     phrase = fields.String(load_default=None, allow_none=True)
     value = fields.Integer(load_default=None, allow_none=True)

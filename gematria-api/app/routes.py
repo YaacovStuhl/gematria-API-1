@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from flask import abort
 from flask.views import MethodView
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from .extensions import db
 from .models import GematriaEntry
 from .schemas import (
+    BulkUpsertResponseSchema,
     EntryCreateSchema,
     EntrySchema,
     EntryUpdateSchema,
@@ -202,5 +204,63 @@ class EntryByPhrase(MethodView):
             abort(409, description="Phrase already exists")
 
         return {"id": entry.id, "phrase": entry.phrase, "value": entry.value, "source": None}
+
+
+@blp.route("/entries/by-phrase/bulk")
+class BulkUpsertByPhrase(MethodView):
+    """
+    Bulk upsert entries by unique phrase.
+
+    Accepts a JSON array of objects like:
+      [{"phrase": "...", "value": 123}, ...]
+
+    Notes:
+    - `source` is accepted but not stored (current DB schema).
+    - Duplicate phrases in the payload are deduped; the last one wins.
+    """
+
+    @blp.arguments(EntryUpsertByPhraseSchema(many=True))
+    @blp.response(200, BulkUpsertResponseSchema)
+    def put(self, payloads: list[dict]):
+        requested = len(payloads)
+
+        # Deduplicate by phrase (last wins) and ignore empty phrases.
+        by_phrase: dict[str, int] = {}
+        for p in payloads:
+            phrase = (p.get("phrase") or "").strip()
+            if not phrase:
+                continue
+            by_phrase[phrase] = int(p["value"])
+
+        rows = [{"phrase": phrase, "value": value} for phrase, value in by_phrase.items()]
+
+        # Batch to keep statements reasonably sized.
+        BATCH_SIZE = 1000
+        upserted_total = 0
+
+        try:
+            for i in range(0, len(rows), BATCH_SIZE):
+                chunk = rows[i : i + BATCH_SIZE]
+                if not chunk:
+                    continue
+
+                insert_stmt = pg_insert(GematriaEntry).values(chunk)
+                upsert_stmt = insert_stmt.on_conflict_do_update(
+                    index_elements=[GematriaEntry.phrase],
+                    set_={"value": insert_stmt.excluded.value},
+                )
+                result = db.session.execute(upsert_stmt)
+                # Rowcount is inserts + updates for ON CONFLICT.
+                upserted_total += int(result.rowcount or 0)
+
+            db.session.commit()
+        except OperationalError:
+            db.session.rollback()
+            abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(503, description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).")
+
+        return {"requested": requested, "unique": len(rows), "upserted": upserted_total}
 
 

@@ -62,6 +62,12 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://127.0.0.1:5000", help="Gematria API base URL")
     parser.add_argument("--sleep", type=float, default=0.0, help="Sleep between API requests (seconds)")
     parser.add_argument("--max", type=int, default=0, help="If >0, stop after importing this many entries")
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=250,
+        help="Print a progress line every N processed dictionary items (0 disables)",
+    )
     args = parser.parse_args()
 
     dict_path = Path(args.dict_path)
@@ -103,6 +109,12 @@ def main() -> int:
         except Exception as e:
             failed += 1
             print(f"[{i}/{len(items)}] ERROR for '{phrase}' ({strong_id}): {e}")
+
+        if args.progress_every and args.progress_every > 0 and (i % args.progress_every == 0):
+            print(
+                f"[{i}/{len(items)}] progress: upserted={upserted}, failed={failed}, unique_phrases={len(seen)}",
+                flush=True,
+            )
 
         if args.sleep:
             time.sleep(args.sleep)
