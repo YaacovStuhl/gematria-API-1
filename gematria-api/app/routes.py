@@ -170,6 +170,30 @@ class EntryByPhrase(MethodView):
     Convenience endpoint for bulk loaders: upsert by unique phrase (no ID needed).
     """
 
+    @blp.arguments(GematriaQueryArgsSchema, location="query")
+    @blp.response(200, EntrySchema)
+    def get(self, args):
+        """
+        Fetch an entry by phrase (returns id, phrase, value).
+        """
+        phrase = args["phrase"].strip()
+        try:
+            entry = db.session.execute(
+                db.select(GematriaEntry).where(GematriaEntry.phrase == phrase)
+            ).scalar_one_or_none()
+        except OperationalError:
+            abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(
+                503,
+                description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).",
+            )
+
+        if entry is None:
+            abort(404, description="Entry not found")
+
+        return {"id": entry.id, "phrase": entry.phrase, "value": entry.value, "source": None}
+
     @blp.arguments(EntryUpsertByPhraseSchema)
     @blp.response(200, EntrySchema)
     def put(self, payload):
@@ -204,6 +228,44 @@ class EntryByPhrase(MethodView):
             abort(409, description="Phrase already exists")
 
         return {"id": entry.id, "phrase": entry.phrase, "value": entry.value, "source": None}
+
+    @blp.arguments(GematriaQueryArgsSchema, location="query")
+    @blp.response(200, EntrySchema)
+    def delete(self, args):
+        """
+        Delete an entry by phrase (convenience for clients that don't know the id).
+        """
+        phrase = args["phrase"].strip()
+        try:
+            entry = db.session.execute(
+                db.select(GematriaEntry).where(GematriaEntry.phrase == phrase)
+            ).scalar_one_or_none()
+        except OperationalError:
+            abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            abort(
+                503,
+                description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).",
+            )
+
+        if entry is None:
+            abort(404, description="Entry not found")
+
+        deleted = {"id": entry.id, "phrase": entry.phrase, "value": entry.value, "source": None}
+        db.session.delete(entry)
+        try:
+            db.session.commit()
+        except OperationalError:
+            db.session.rollback()
+            abort(503, description="Database connection failed. Check DATABASE_URL.")
+        except ProgrammingError:
+            db.session.rollback()
+            abort(
+                503,
+                description="Database schema missing. Ensure public.gematria_entries exists (restore/migrate).",
+            )
+
+        return deleted
 
 
 @blp.route("/entries/by-phrase/bulk")
